@@ -1,0 +1,251 @@
+{
+  "name": "stock 2",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "append",
+        "sheetId": "1L1fkY4aGOhCQiiLWFofCPlj-h-fHrBbsZJTNGGU3k5s",
+        "range": "A:G",
+        "options": {}
+      },
+      "id": "c9988257-ce32-464f-bc29-e8d596bfc763",
+      "name": "Save to Google Sheet1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        20,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MjWRXWMleuOgmDju",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 9
+            }
+          ]
+        }
+      },
+      "id": "d2a4ffec-5982-40c3-8779-1225d8071bc4",
+      "name": "Daily Stock Check",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -1240,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "stockList",
+              "value": "IOB.NS,SAKHTISUG.NS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bcb1e25a-5c35-4fde-bd95-9c0481e6ae4b",
+      "name": "Set Stock Symbols",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -1020,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split the comma-separated stock list into individual items\nconst stockList = $input.first().json.stockList;\nconst stocks = stockList.split(',').map(stock => stock.trim());\n\n// Return each stock as a separate item\nreturn stocks.map((stock, index) => ({\n  json: {\n    stock,\n    index\n  }\n}));"
+      },
+      "id": "d42e0d84-ab56-4736-9187-e8c216e21391",
+      "name": "Split Stock Symbols",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{        $json.stock }}",
+        "options": {}
+      },
+      "id": "ab99935e-db27-4df4-840f-0170c3e9c186",
+      "name": "Fetch Stock Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        -580,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "symbol",
+              "value": "={{ $json.chart?.result[0]?.meta?.symbol || 'N/A' }}"
+            },
+            {
+              "name": "current_price",
+              "value": "={{ $json.chart?.result[0]?.meta?.regularMarketPrice || 0 }}"
+            },
+            {
+              "name": "previous_close",
+              "value": "={{ $json.chart?.result[0]?.meta?.previousClose || 0 }}"
+            },
+            {
+              "name": "change",
+              "value": "={{ (($json.chart?.result[0]?.meta?.regularMarketPrice || 0) - ($json.chart?.result[0]?.meta?.previousClose || 0)).toFixed(2) }}"
+            },
+            {
+              "name": "change_percent",
+              "value": "={{ ((($json.chart?.result[0]?.meta?.regularMarketPrice || 0) - ($json.chart?.result[0]?.meta?.previousClose || 0)) / ($json.chart?.result[0]?.meta?.previousClose || 1) * 100).toFixed(2) }}"
+            },
+            {
+              "name": "market_time",
+              "value": "={{ $json.chart?.result[0]?.meta?.regularMarketTime ? new Date($json.chart.result[0].meta.regularMarketTime * 1000).toISOString() : 'N/A' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1070d335-06e9-43f6-854e-a7c4f94865ef",
+      "name": "Format Stock Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "2079695867",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        160,
+        360
+      ],
+      "id": "4cdcefb3-f53b-4ba3-a193-186476abc6f0",
+      "name": "Telegram",
+      "webhookId": "b1e28386-eaf1-4efe-8dda-3e5171b638b6",
+      "credentials": {
+        "telegramApi": {
+          "id": "m0BRdKC8yhiApq1u",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wait for all stock data to be processed\nconst allStocks = $input.all();\n\n// Create a summary email with all stocks\nlet emailBody = \"📈 Daily Indian Stock Portfolio Update\\n\\n\";\n\nallStocks.forEach(item => {\n  const data = item.json;\n  const changeSymbol = parseFloat(data.change) >= 0 ? '📈' : '📉';\n  const portfolioInfo = data.symbol === 'IOB.NS' ? ' (Holdings: 20 shares)' : \n                       data.symbol === 'SAKHTISUG.NS' ? ' (Holdings: 400 shares)' : '';\n  const valueChange = data.symbol === 'IOB.NS' ? (data.current_price * 20).toFixed(2) :\n                     data.symbol === 'SAKHTISUG.NS' ? (data.current_price * 400).toFixed(2) : '0';\n  \n  emailBody += `${changeSymbol} ${data.symbol}${portfolioInfo}\\n`;\n  emailBody += `   Current: ₹${data.current_price} | Value: ₹${valueChange}\\n`;\n  emailBody += `   Change: ₹${data.change} (${data.change_percent}%)\\n`;\n  emailBody += `   Previous Close: ₹${data.previous_close}\\n`;\n  emailBody += `   Yahoo Link: https://in.finance.yahoo.com/quote/${data.symbol.replace('.NS',  '')}.NS\\n\\n`;\n});\n\nemailBody += `Last Updated: ${new Date().toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'})} IST`;\n\nreturn [{\n  subject: `📊 Portfolio Update - ${allStocks.length} Stocks Tracked`,\n  message: emailBody\n}];"
+      },
+      "id": "80e312c9-f07f-445e-a033-050fa8f23d60",
+      "name": "Combine telegram Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Stock Check": {
+      "main": [
+        [
+          {
+            "node": "Set Stock Symbols",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Stock Symbols": {
+      "main": [
+        [
+          {
+            "node": "Split Stock Symbols",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Stock Symbols": {
+      "main": [
+        [
+          {
+            "node": "Fetch Stock Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Stock Price": {
+      "main": [
+        [
+          {
+            "node": "Format Stock Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Stock Data": {
+      "main": [
+        [
+          {
+            "node": "Combine telegram Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine telegram Data": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "988732b3-f2de-47dc-8b12-f0209be6bd9a",
+  "meta": {
+    "instanceId": "51b6d3b40dc7c3081276a972dfaf4c5f5973a17cddabb13d96132a3e8d91e697"
+  },
+  "id": "1hxBFLjm04yQprjv",
+  "tags": []
+}
