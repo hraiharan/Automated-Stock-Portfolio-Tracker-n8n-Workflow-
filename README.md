@@ -1,19 +1,6 @@
 # Automated-Stock-Portfolio-Tracker-n8n-Workflow-
 This project is an automated stock tracking workflow built using n8n. It fetches live stock prices daily from Yahoo Finance, calculates portfolio value changes, and sends a summary update to Telegram. It also logs the data to Google Sheets for historical tracking.
 
-
-
-
-
-
-Here’s a clean and professional **README** you can use for your GitHub project. I wrote it based on your `stock.json` workflow – which tracks stock prices daily using **n8n**, **Yahoo Finance API**, and sends portfolio updates via **Telegram** and **Google Sheets**.
-
----
-
-# 📈 Automated Stock Portfolio Tracker (n8n Workflow)
-
-This project is an **automated stock tracking workflow built using n8n**. It fetches **live stock prices daily from Yahoo Finance**, calculates **portfolio value changes**, and sends a **summary update to Telegram**. It also logs the data to **Google Sheets** for historical tracking.
-
 ---
 
 ##  Features
